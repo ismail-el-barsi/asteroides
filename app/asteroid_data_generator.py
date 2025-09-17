@@ -42,14 +42,34 @@ class AsteroidDataGenerator:
         self.asteroid_counter = 0
         
     def generate_asteroid_data(self) -> Dict:
-        """Generate realistic asteroid data"""
+        """Generate realistic asteroid data with enhanced variety"""
         self.asteroid_counter += 1
         asteroid_id = f"asteroid_{self.asteroid_counter:06d}"
         
-        # Generate initial position (between Mars and Jupiter orbit mostly)
-        distance = random.uniform(1.5 * self.AU, 5.0 * self.AU)
+        # Create more varied asteroid positions - some closer to Earth for higher risk
+        asteroid_type = random.choices(
+            ["main_belt", "near_earth", "trojan", "outer"],
+            weights=[60, 25, 10, 5]  # Most in main belt, some near Earth
+        )[0]
+        
+        if asteroid_type == "near_earth":
+            # Near-Earth asteroids (potentially dangerous)
+            distance = random.uniform(0.8 * self.AU, 1.3 * self.AU)
+            inclination = random.gauss(0, 0.15)
+        elif asteroid_type == "main_belt":
+            # Main belt asteroids
+            distance = random.uniform(2.0 * self.AU, 3.5 * self.AU)
+            inclination = random.gauss(0, 0.1)
+        elif asteroid_type == "trojan":
+            # Trojan asteroids (around Jupiter's orbit)
+            distance = random.uniform(4.8 * self.AU, 5.5 * self.AU)
+            inclination = random.gauss(0, 0.05)
+        else:  # outer
+            # Outer system asteroids
+            distance = random.uniform(5.0 * self.AU, 8.0 * self.AU)
+            inclination = random.gauss(0, 0.2)
+        
         angle = random.uniform(0, 2 * math.pi)
-        inclination = random.gauss(0, 0.1)  # Most asteroids have low inclination
         
         position = {
             "x": distance * math.cos(angle) * math.cos(inclination),
@@ -57,20 +77,36 @@ class AsteroidDataGenerator:
             "z": distance * math.sin(inclination)
         }
         
-        # Generate velocity (orbital mechanics approximation)
-        orbital_speed = math.sqrt(1.327e11 / distance)  # Simplified orbital velocity
-        velocity_perturbation = random.uniform(0.8, 1.2)
+        # Generate velocity with more variation
+        orbital_speed = math.sqrt(1.327e11 / distance)
+        velocity_perturbation = random.uniform(0.7, 1.4)  # More variation
+        
+        # Add some eccentric orbits
+        eccentricity_factor = random.uniform(0.5, 1.5)
         
         velocity = {
-            "vx": -orbital_speed * math.sin(angle) * velocity_perturbation + random.gauss(0, 5),
-            "vy": orbital_speed * math.cos(angle) * velocity_perturbation + random.gauss(0, 5),
-            "vz": random.gauss(0, 2)
+            "vx": -orbital_speed * math.sin(angle) * velocity_perturbation * eccentricity_factor + random.gauss(0, 10),
+            "vy": orbital_speed * math.cos(angle) * velocity_perturbation * eccentricity_factor + random.gauss(0, 10),
+            "vz": random.gauss(0, 5)
         }
         
-        # Asteroid physical properties
-        size = random.lognormvariate(0, 1)  # Size in kilometers
-        density = random.uniform(2000, 5000)  # kg/m³
-        volume = (4/3) * math.pi * (size * 500) ** 3  # Convert to meters
+        # More varied asteroid physical properties
+        size_distribution = random.choices(
+            ["small", "medium", "large", "very_large"],
+            weights=[50, 30, 15, 5]
+        )[0]
+        
+        if size_distribution == "small":
+            size = random.uniform(0.1, 1.0)
+        elif size_distribution == "medium":
+            size = random.uniform(1.0, 5.0)
+        elif size_distribution == "large":
+            size = random.uniform(5.0, 20.0)
+        else:  # very_large
+            size = random.uniform(20.0, 100.0)
+        
+        density = random.uniform(1500, 8000)  # Wider density range
+        volume = (4/3) * math.pi * (size * 500) ** 3
         mass = density * volume
         
         asteroid_data = {
@@ -81,6 +117,8 @@ class AsteroidDataGenerator:
             "size": round(size, 3),
             "mass": mass,
             "density": density,
+            "asteroid_type": asteroid_type,
+            "size_category": size_distribution,
             "classification": self._classify_asteroid(distance),
             "discovery_date": datetime.now().isoformat(),
             "orbital_period": self._calculate_orbital_period(distance),
@@ -194,7 +232,7 @@ class AsteroidDataGenerator:
         return earth_distance < 0.05 * self.AU and size > 0.14
     
     def calculate_collision_probability(self, asteroid_data: Dict) -> float:
-        """Calculate rough collision probability with Earth"""
+        """Calculate enhanced collision probability with varied risk levels"""
         pos = asteroid_data["position"]
         vel = asteroid_data["velocity"]
         
@@ -206,33 +244,72 @@ class AsteroidDataGenerator:
             (pos["z"] - earth_pos["z"])**2
         )
         
-        # Simple collision probability calculation
-        # Real calculations would involve complex orbital mechanics
+        # Enhanced collision probability calculation with more variety
         earth_radius = 6371  # km
-        earth_soi = 0.01 * self.AU  # Sphere of influence (simplified)
+        earth_soi = 0.05 * self.AU  # Larger sphere of influence for more variety
         
-        if distance_to_earth > earth_soi:
-            return 0.0
-        
-        # Probability increases as distance decreases and size increases
-        size_factor = min(asteroid_data["size"] / 10.0, 1.0)
+        # Base probability calculation with multiple factors
         distance_factor = max(0, 1 - (distance_to_earth / earth_soi))
+        size_factor = min(asteroid_data["size"] / 5.0, 2.0)  # Larger impact for size
+        velocity_magnitude = math.sqrt(vel["vx"]**2 + vel["vy"]**2 + vel["vz"]**2)
+        velocity_factor = min(velocity_magnitude / 50000, 1.5)  # Velocity impact
         
-        probability = size_factor * distance_factor * 0.001  # Very low base probability
+        # Create varied probability ranges
+        base_probability = distance_factor * size_factor * velocity_factor
+        
+        # Add randomness for more variety
+        random_factor = random.uniform(0.1, 2.0)
+        probability = base_probability * random_factor * 0.01
+        
+        # Ensure some asteroids have higher probabilities
+        if random.random() < 0.15:  # 15% chance for high risk
+            probability = max(probability, random.uniform(0.001, 0.01))
+        elif random.random() < 0.25:  # 25% chance for medium risk
+            probability = max(probability, random.uniform(0.0001, 0.001))
+        
         return min(probability, 1.0)
+
+    def _get_risk_level_and_color(self, collision_probability: float) -> tuple:
+        """Determine risk level and color based on collision probability"""
+        if collision_probability > 0.001:  # > 0.1%
+            return "HIGH", "red"
+        elif collision_probability > 0.0001:  # > 0.01%
+            return "MEDIUM", "orange"
+        elif collision_probability > 0.00001:  # > 0.001%
+            return "LOW", "yellow"
+        elif collision_probability > 0.000001:  # > 0.0001%
+            return "VERY_LOW", "blue"
+        else:
+            return "SAFE", "green"
     
     def publish_asteroid_data(self, asteroid_data: Dict):
-        """Publish asteroid data to Kafka topic"""
+        """Publish asteroid data to Kafka topic with enhanced risk assessment"""
         try:
-            # Add collision probability
-            asteroid_data["collision_probability"] = self.calculate_collision_probability(asteroid_data)
+            # Calculate collision probability
+            collision_prob = self.calculate_collision_probability(asteroid_data)
+            asteroid_data["collision_probability"] = collision_prob
+            asteroid_data["enhanced_collision_probability"] = collision_prob
+            
+            # Get risk level and color
+            risk_level, color = self._get_risk_level_and_color(collision_prob)
+            asteroid_data["risk_level"] = risk_level
+            asteroid_data["color"] = color
+            
+            # Calculate distance from Earth for additional info
+            earth_pos = self.generate_planet_data("Earth")["position"]
+            distance_to_earth = math.sqrt(
+                (asteroid_data["position"]["x"] - earth_pos["x"])**2 +
+                (asteroid_data["position"]["y"] - earth_pos["y"])**2 +
+                (asteroid_data["position"]["z"] - earth_pos["z"])**2
+            )
+            asteroid_data["distance_from_earth"] = distance_to_earth
             
             self.producer.send(
                 'asteroid-data',
                 key=asteroid_data["id"],
                 value=asteroid_data
             )
-            print(f"Published asteroid data: {asteroid_data['id']}")
+            print(f"Published asteroid data: {asteroid_data['id']} - Risk: {risk_level} - Prob: {collision_prob:.8f}")
         except Exception as e:
             print(f"Error publishing asteroid data: {e}")
     
@@ -345,5 +422,4 @@ def main():
     generator.run_continuous_generation(asteroid_interval=10, planet_interval=120)
 
 if __name__ == "__main__":
-    main()if __name__ == "__main__":
     main()

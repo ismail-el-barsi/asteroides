@@ -30,4 +30,4 @@ RUN mkdir -p /tmp/asteroid_data/models \
 EXPOSE 8050 8888
 
 # Default command
-CMD ["python", "asteroid_data_generator.py"]
+CMD ["python", "start_app.py"]

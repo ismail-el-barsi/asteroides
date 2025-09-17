@@ -274,18 +274,34 @@ class AsteroidVisualizationDashboard:
         self.generate_sample_data()
     
     def generate_sample_data(self):
-        """Generate sample data for demonstration"""
-        logger.info("Generating sample data for visualization...")
+        """Generate enhanced sample data for demonstration"""
+        logger.info("Generating enhanced sample data for visualization...")
         
         np.random.seed(42)
         n_asteroids = 100
         
-        # Generate sample asteroids
+        # Generate sample asteroids with enhanced variety
         for i in range(n_asteroids):
-            # Position in solar system
-            distance = np.random.uniform(1.5 * self.AU, 5.0 * self.AU)
+            # Create different types of asteroids with varied positions
+            asteroid_type = np.random.choice(
+                ["near_earth", "main_belt", "trojan", "outer"],
+                p=[0.25, 0.60, 0.10, 0.05]  # 25% near-Earth for more exciting data
+            )
+            
+            if asteroid_type == "near_earth":
+                distance = np.random.uniform(0.8 * self.AU, 1.3 * self.AU)
+                inclination = np.random.normal(0, 0.15)
+            elif asteroid_type == "main_belt":
+                distance = np.random.uniform(2.0 * self.AU, 3.5 * self.AU)
+                inclination = np.random.normal(0, 0.1)
+            elif asteroid_type == "trojan":
+                distance = np.random.uniform(4.8 * self.AU, 5.5 * self.AU)
+                inclination = np.random.normal(0, 0.05)
+            else:  # outer
+                distance = np.random.uniform(5.0 * self.AU, 8.0 * self.AU)
+                inclination = np.random.normal(0, 0.2)
+            
             angle = np.random.uniform(0, 2 * np.pi)
-            inclination = np.random.normal(0, 0.1)
             
             position = {
                 "x": distance * np.cos(angle) * np.cos(inclination),
@@ -293,18 +309,62 @@ class AsteroidVisualizationDashboard:
                 "z": distance * np.sin(inclination)
             }
             
-            # Velocity
+            # Enhanced velocity calculation
             orbital_speed = np.sqrt(1.327e11 / distance)
+            velocity_perturbation = np.random.uniform(0.7, 1.4)
+            
             velocity = {
-                "vx": -orbital_speed * np.sin(angle) + np.random.normal(0, 5),
-                "vy": orbital_speed * np.cos(angle) + np.random.normal(0, 5),
-                "vz": np.random.normal(0, 2)
+                "vx": -orbital_speed * np.sin(angle) * velocity_perturbation + np.random.normal(0, 10),
+                "vy": orbital_speed * np.cos(angle) * velocity_perturbation + np.random.normal(0, 10),
+                "vz": np.random.normal(0, 5)
             }
             
-            size = np.random.lognormal(0, 1)
+            # More varied size distribution
+            size_category = np.random.choice(
+                ["small", "medium", "large", "very_large"],
+                p=[0.50, 0.30, 0.15, 0.05]
+            )
+            
+            if size_category == "small":
+                size = np.random.uniform(0.1, 1.0)
+            elif size_category == "medium":
+                size = np.random.uniform(1.0, 5.0)
+            elif size_category == "large":
+                size = np.random.uniform(5.0, 20.0)
+            else:  # very_large
+                size = np.random.uniform(20.0, 100.0)
+            
             earth_distance = np.sqrt((position["x"] - self.AU)**2 + position["y"]**2 + position["z"]**2)
             
-            collision_prob = max(0, np.random.exponential(0.000001) if earth_distance < 0.1 * self.AU else 0)
+            # Enhanced collision probability calculation
+            distance_factor = max(0, 1 - (earth_distance / (0.05 * self.AU)))
+            size_factor = min(size / 5.0, 2.0)
+            velocity_magnitude = np.sqrt(velocity["vx"]**2 + velocity["vy"]**2 + velocity["vz"]**2)
+            velocity_factor = min(velocity_magnitude / 50000, 1.5)
+            
+            base_probability = distance_factor * size_factor * velocity_factor
+            random_factor = np.random.uniform(0.1, 2.0)
+            collision_prob = base_probability * random_factor * 0.01
+            
+            # Ensure some asteroids have higher probabilities for variety
+            if np.random.random() < 0.15:  # 15% high risk
+                collision_prob = max(collision_prob, np.random.uniform(0.001, 0.01))
+            elif np.random.random() < 0.25:  # 25% medium risk
+                collision_prob = max(collision_prob, np.random.uniform(0.0001, 0.001))
+            elif np.random.random() < 0.35:  # 35% low risk
+                collision_prob = max(collision_prob, np.random.uniform(0.00001, 0.0001))
+            
+            # Determine risk level and color
+            if collision_prob > 0.001:
+                risk_level, color = "HIGH", "red"
+            elif collision_prob > 0.0001:
+                risk_level, color = "MEDIUM", "orange"
+            elif collision_prob > 0.00001:
+                risk_level, color = "LOW", "yellow"
+            elif collision_prob > 0.000001:
+                risk_level, color = "VERY_LOW", "blue"
+            else:
+                risk_level, color = "SAFE", "green"
             
             asteroid = {
                 "id": f"asteroid_{i:06d}",
@@ -314,9 +374,12 @@ class AsteroidVisualizationDashboard:
                 "size": size,
                 "mass": size ** 3 * np.random.uniform(2000, 5000),
                 "enhanced_collision_probability": collision_prob,
+                "collision_probability": collision_prob,
                 "distance_from_earth": earth_distance,
-                "risk_level": "HIGH" if collision_prob > 0.00001 else 
-                           "MEDIUM" if collision_prob > 0.000001 else "LOW"
+                "risk_level": risk_level,
+                "color": color,
+                "asteroid_type": asteroid_type,
+                "size_category": size_category
             }
             
             self.asteroid_data.append(asteroid)
@@ -687,4 +750,4 @@ def main():
     dashboard.run_dashboard(debug=True)
 
 if __name__ == "__main__":
-    main()    main()
+    main()
