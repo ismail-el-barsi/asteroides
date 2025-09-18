@@ -2,6 +2,7 @@
 """
 Asteroid Data Generator
 Generates continuous simulated asteroid and planet data for collision prediction system
+Uses ML model for real collision probability prediction
 """
 
 import json
@@ -13,6 +14,15 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 from kafka import KafkaProducer
+
+# Import du prédicteur ML
+try:
+    from ml_predictor import predict_collision_probability
+    ML_AVAILABLE = True
+    print("✅ Modèle ML chargé pour prédictions de collision")
+except ImportError as e:
+    ML_AVAILABLE = False
+    print(f"⚠️  Modèle ML non disponible, utilisation méthode fallback: {e}")
 
 
 class AsteroidDataGenerator:
@@ -232,7 +242,26 @@ class AsteroidDataGenerator:
         return earth_distance < 0.05 * self.AU and size > 0.14
     
     def calculate_collision_probability(self, asteroid_data: Dict) -> float:
-        """Calculate enhanced collision probability with varied risk levels"""
+        """
+        Calculate collision probability using ML model or fallback method
+        Remplace l'ancienne génération artificielle par de vraies prédictions ML
+        """
+        
+        if ML_AVAILABLE:
+            try:
+                # Utilisation du modèle ML PyTorch
+                probability, risk_level = predict_collision_probability(asteroid_data)
+                return probability
+                
+            except Exception as e:
+                print(f"⚠️  Erreur ML, utilisation fallback: {e}")
+                return self._fallback_collision_probability(asteroid_data)
+        else:
+            # Méthode de fallback si ML non disponible
+            return self._fallback_collision_probability(asteroid_data)
+    
+    def _fallback_collision_probability(self, asteroid_data: Dict) -> float:
+        """Méthode de fallback pour calcul de probabilité (ancienne méthode améliorée)"""
         pos = asteroid_data["position"]
         vel = asteroid_data["velocity"]
         

@@ -64,8 +64,7 @@ class AsteroidVisualizationDashboard:
                         id='view-type',
                         options=[
                             {'label': '3D Solar System', 'value': '3d'},
-                            {'label': '2D Orbital View', 'value': '2d'},
-                            {'label': 'Earth-Centric View', 'value': 'earth'}
+                            {'label': '2D Orbital View', 'value': '2d'}
                         ],
                         value='3d'
                     ),
@@ -121,13 +120,6 @@ class AsteroidVisualizationDashboard:
                 ], style={'width': '50%', 'display': 'inline-block'})
             ], style={'marginTop': 20}),
             
-            # Alerts panel
-            html.Div([
-                html.H3("Collision Alerts", style={'color': '#e74c3c'}),
-                html.Div(id='alerts-panel')
-            ], style={'marginTop': 20, 'padding': '20px', 'backgroundColor': '#fdf2f2', 
-                     'borderRadius': '10px', 'border': '1px solid #e74c3c'}),
-            
             # Data table
             html.Div([
                 html.H3("Asteroid Data Table"),
@@ -150,7 +142,6 @@ class AsteroidVisualizationDashboard:
              Output('statistics-panel', 'children'),
              Output('collision-probability-plot', 'figure'),
              Output('asteroid-size-distribution', 'figure'),
-             Output('alerts-panel', 'children'),
              Output('data-table', 'children')],
             [Input('interval-component', 'n_intervals'),
              Input('refresh-button', 'n_clicks'),
@@ -177,13 +168,10 @@ class AsteroidVisualizationDashboard:
             prob_figure = self.create_collision_probability_plot(filtered_asteroids)
             size_figure = self.create_size_distribution_plot(filtered_asteroids)
             
-            # Create alerts
-            alerts = self.create_alerts_panel()
-            
             # Create data table
             data_table = self.create_data_table(filtered_asteroids)
             
-            return main_figure, stats, prob_figure, size_figure, alerts, data_table
+            return main_figure, stats, prob_figure, size_figure, data_table
     
     def update_data_continuously(self):
         """Continuously update data from Kafka"""
@@ -497,6 +485,25 @@ class AsteroidVisualizationDashboard:
                 hovertext=hover_texts
             ))
             
+            # Add collision trajectories for high-risk asteroids
+            earth_pos = next((p['position'] for p in self.planet_data if p['planet'] == 'Earth'), 
+                           {'x': self.AU, 'y': 0, 'z': 0})
+            
+            for asteroid in asteroids:
+                if asteroid.get('risk_level') == 'HIGH':
+                    pos = asteroid['position']
+                    # Draw trajectory line from asteroid to Earth
+                    fig.add_trace(go.Scatter3d(
+                        x=[pos['x'], earth_pos['x']],
+                        y=[pos['y'], earth_pos['y']], 
+                        z=[pos['z'], earth_pos['z']],
+                        mode='lines',
+                        line=dict(color='red', width=3, dash='dash'),
+                        name=f'Collision Path {asteroid["id"]}',
+                        hovertemplate=f'Collision trajectory for {asteroid["id"]}<extra></extra>',
+                        showlegend=False
+                    ))
+            
             # Add Earth orbit
             theta = np.linspace(0, 2*np.pi, 100)
             earth_orbit_x = self.AU * np.cos(theta)
@@ -562,6 +569,23 @@ class AsteroidVisualizationDashboard:
                     name=f'{risk_level} Risk Asteroids'
                 ))
             
+            # Add collision trajectories for high-risk asteroids in 2D
+            earth_pos = next((p['position'] for p in self.planet_data if p['planet'] == 'Earth'), 
+                           {'x': self.AU, 'y': 0, 'z': 0})
+            
+            for asteroid in asteroids:
+                if asteroid.get('risk_level') == 'HIGH':
+                    pos = asteroid['position']
+                    # Draw trajectory line from asteroid to Earth
+                    fig.add_trace(go.Scatter(
+                        x=[pos['x'], earth_pos['x']],
+                        y=[pos['y'], earth_pos['y']],
+                        mode='lines',
+                        line=dict(color='red', width=2, dash='dash'),
+                        name=f'Collision Path {asteroid["id"]}',
+                        showlegend=False
+                    ))
+            
             # Add Earth orbit
             theta = np.linspace(0, 2*np.pi, 100)
             fig.add_trace(go.Scatter(
@@ -576,49 +600,6 @@ class AsteroidVisualizationDashboard:
                 title="2D Orbital View",
                 xaxis_title="X (km)",
                 yaxis_title="Y (km)",
-                height=600
-            )
-        
-        elif view_type == 'earth':
-            # Earth-Centric View
-            fig = go.Figure()
-            
-            earth_pos = next((p['position'] for p in self.planet_data if p['planet'] == 'Earth'), 
-                           {'x': self.AU, 'y': 0, 'z': 0})
-            
-            # Add Earth
-            fig.add_trace(go.Scatter3d(
-                x=[earth_pos['x']], y=[earth_pos['y']], z=[earth_pos['z']],
-                mode='markers',
-                marker=dict(size=15, color='blue'),
-                name='Earth'
-            ))
-            
-            # Add nearby asteroids (within 0.1 AU)
-            nearby_asteroids = [a for a in asteroids 
-                              if a.get('distance_from_earth', float('inf')) < 0.1 * self.AU]
-            
-            if nearby_asteroids:
-                x_coords = [a['position']['x'] for a in nearby_asteroids]
-                y_coords = [a['position']['y'] for a in nearby_asteroids]
-                z_coords = [a['position']['z'] for a in nearby_asteroids]
-                colors = ['red' if a.get('risk_level') == 'HIGH' else 'orange' 
-                         if a.get('risk_level') == 'MEDIUM' else 'green' for a in nearby_asteroids]
-                
-                fig.add_trace(go.Scatter3d(
-                    x=x_coords, y=y_coords, z=z_coords,
-                    mode='markers',
-                    marker=dict(color=colors, size=8),
-                    name='Nearby Asteroids'
-                ))
-            
-            fig.update_layout(
-                title="Earth-Centric View (Nearby Asteroids)",
-                scene=dict(
-                    xaxis_title="X (km)",
-                    yaxis_title="Y (km)",
-                    zaxis_title="Z (km)"
-                ),
                 height=600
             )
         
